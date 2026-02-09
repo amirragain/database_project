@@ -125,46 +125,46 @@ public class CarParkingLogin extends javax.swing.JFrame {
     private void loginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loginActionPerformed
        String userText = username.getText();
        String passText = String.valueOf(password.getPassword());
-        if(userText.equals("")){
-            JOptionPane.showMessageDialog(null, "Please fill out username");
-        }
-        else if(passText.equals("")){
-            JOptionPane.showMessageDialog(null, "Please fill out password");
-        }
-        else {
-            try {
-                java.sql.Connection con = DBConnection.connect();
-                // FIXED: Changed 'password' to 'password_hash' to match your table
-                String sql = "SELECT * FROM user WHERE username = ? AND password_hash = ?";
-                java.sql.PreparedStatement pst = con.prepareStatement(sql);
-                pst.setString(1, userText);
-                pst.setString(2, passText);
-                java.sql.ResultSet rs = pst.executeQuery();
-                if (rs.next()) {
+        if(userText.isEmpty() || passText.isEmpty()) {
+        javax.swing.JOptionPane.showMessageDialog(null, "Please enter username and password.");
+        return;
+    }
 
+    try {
+        java.sql.Connection con = DBConnection.connect();
+        // Use the Stored Procedure we made
+        java.sql.CallableStatement cst = con.prepareCall("{call sp_UserLogin(?, ?)}");
+        cst.setString(1, userText);
+        cst.setString(2, passText);
+
+        boolean hasResults = cst.execute();
+
+        if (hasResults) {
+            java.sql.ResultSet rs = cst.getResultSet();
+
+            if (rs.next()) { 
+                // --- SUCCESS LOGIN ---
+                
+                // 1. SAVE THE SESSION DATA (Crucial for History Check!)
                 Session.currentUserId = rs.getInt("user_id");
-                Session.currentUsername = rs.getString("username");
-
-                JOptionPane.showMessageDialog(null, "Login Successful! Welcome " + Session.currentUsername);
-
-                this.dispose(); 
+                Session.userRole = rs.getString("role"); // e.g. "Admin" or "Teller"
+                
+                javax.swing.JOptionPane.showMessageDialog(null, "Login Successful! Welcome " + Session.userRole);
+                
+                // 2. Open Menu
+                this.dispose();
                 new ParkingMenu().setVisible(true);
-                }
-                if (rs.next()) {
-                    // Login Success
-                    JOptionPane.showMessageDialog(null, "Login Successful! Welcome " + userText);
-                    this.dispose(); 
-                    new ParkingMenu().setVisible(true);
-                } else {
-                    // Login Failed
-                    JOptionPane.showMessageDialog(null, "Wrong Username or Password", "Login Error", JOptionPane.ERROR_MESSAGE);
-                }
-                con.close();
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(null, "Database Error: " + e);
-            }
 
+            } else {
+                // --- FAILED LOGIN (Wrong User/Pass) ---
+                javax.swing.JOptionPane.showMessageDialog(null, "Login Failed: Invalid Username or Password", "Error", javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
         }
+        con.close();
+
+    } catch (Exception e) {
+        javax.swing.JOptionPane.showMessageDialog(null, "Database Error: " + e);
+    }
     }//GEN-LAST:event_loginActionPerformed
 
     private void passwordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_passwordActionPerformed
